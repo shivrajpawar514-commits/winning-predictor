@@ -1,0 +1,16 @@
+services:
+  web-dashboard:
+    build: .
+    container_name: ipl-predictor-dashboard
+    ports:
+      - "8501:8501"
+    command: streamlit run app.py --server.port=8501 --server.address=0.0.0.0
+    restart: unless-stopped
+
+  api-service:
+    build: .
+    container_name: ipl-predictor-api
+    ports:
+      - "8000:8000"
+    command: uvicorn api:app --host 0.0.0.0 --port 8000
+    restart: unless-stopped
