@@ -81,6 +81,6 @@ st.caption("Model trained on IPL deliveries and match data. Predictions update a
 st.markdown(
     """
     ---
-    Created with ❤️ for IPL analytics by SIDDHI.
+    Created with ❤️ for IPL analytics by Shivraj.
     """
 )

@@ -1,0 +1,15 @@
+# Python & Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Large trained model binary files (>100MB exceeds GitHub standard limit)
+*.pkl
+
+# OS / Editor artifacts
+.DS_Store
+.vscode/
