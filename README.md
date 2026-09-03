@@ -1,26 +1,109 @@
-# 🏏 IPL Match Predictor
+# 🏏 IPL Match Predictor — Winning Team & Score Analytics Engine
 
-A machine learning-powered web application that predicts the outcome and scores of Indian Premier League (IPL) matches in real-time. Built with Streamlit, this tool leverages historical delivery and match data to provide statistical insights during a game.
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://streamlit.io)
+[![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11-blue.svg)](https://www.python.org/)
+[![Scikit-Learn](https://img.shields.io/badge/scikit--learn-1.6.1-orange.svg)](https://scikit-learn.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## ✨ Features
+An end-to-end Machine Learning web application that predicts **real-time winning probabilities** and **first-innings projected scores** for Indian Premier League (IPL) matches. Built using **Streamlit** and powered by **Random Forest Ensemble Models** trained on extensive historical IPL match and delivery datasets.
 
-* First Innings Projection (Regression): Predicts the total runs the batting team will score by the end of the innings based on current runs, wickets, and overs.
-* Second Innings Win Probability (Classification): Calculates the real-time probability of the chasing team winning the match, dynamically updating based on the target score and match situation.
-* Interactive UI: Clean, intuitive interface for seamless data entry and instant visual feedback (progress bars, situational alerts).
-* Intelligent Input Handling: Converts standard cricket over notation (e.g., 7.2 for 7 overs and 2 balls) into decimal formats readable by the ML models.
+---
 
-## 🛠️ Tech Stack
+## 🌟 Key Features
 
-* Frontend: Streamlit
-* Backend/Data Processing: Python, NumPy
-* Machine Learning: Scikit-Learn (models saved via joblib)
+- **🏆 2nd Innings Win Probability (Classification)**:
+  - Real-time winning chance calculation for the chasing batting team vs defending bowling team.
+  - Dynamically updates as the match progresses ball-by-ball.
+  - Displays dual-team probability bars and strategic situational breakdown.
+- **📊 1st Innings Score Projection (Regression)**:
+  - Predicts final projected total score by the end of 20 overs.
+  - Calculates estimated safe target ranges and projected run rates.
+- **⚡ Live Match Analytics Dashboard**:
+  - Live **Current Run Rate (CRR)** & **Required Run Rate (RRR)** calculation.
+  - Real-time remaining balls & runs required indicators.
+- **🎨 Modern Dark UI & Fast Model Caching**:
+  - Glassmorphic design with intuitive side-by-side match configuration.
+  - In-memory model caching with `@st.cache_resource` for instantaneous predictions.
 
-## 📁 Project Structure
+---
 
-├── app.py                   # Main Streamlit application script
-├── ipl_win_predictor.pkl    # Pre-trained classification model (Win Probability)
-├── ipl_runs_predictor.pkl   # Pre-trained regression model (Total Runs)
-├── le_batting.pkl           # Label encoder for batting teams
-├── le_bowling.pkl           # Label encoder for bowling teams
-├── requirements.txt         # Project dependencies (Create this file)
-└── README.txt               # Project documentation
+## 🛠️ Tech Stack & Architecture
+
+- **Frontend**: [Streamlit](https://streamlit.io/) with custom CSS & dark theme
+- **Machine Learning**: [Scikit-Learn](https://scikit-learn.org/) (`RandomForestClassifier`, `RandomForestRegressor`)
+- **Data Engineering**: [Pandas](https://pandas.pydata.org/), [NumPy](https://numpy.org/)
+- **Model Serialization**: [Joblib](https://joblib.readthedocs.io/)
+
+### 🧠 ML Pipeline Overview
+```
+Deliveries Data + Matches Data
+       │
+       ▼
+Feature Engineering (CRR, Wickets, Overs, Target, Teams)
+       │
+       ├──────────────────────────────┐
+       ▼                              ▼
+Random Forest Classifier       Random Forest Regressor
+(2nd Innings Win Probability)  (1st Innings Total Score)
+```
+
+---
+
+## 🚀 Quick Start & Installation
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/shivrajpawar514-commits/winning-predictor.git
+cd winning-predictor
+```
+
+### 2. Set Up a Virtual Environment
+```bash
+python3 -m venv .venv
+source .venv/bin/activate    # On Windows: .venv\Scripts\activate
+```
+
+### 3. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 4. (Optional) Train / Re-train Models
+```bash
+python train_model.py
+```
+
+### 5. Launch the Web App
+```bash
+streamlit run app.py
+```
+Then open [http://localhost:8501](http://localhost:8501) in your browser.
+
+---
+
+## 📁 Repository Structure
+
+```
+├── app.py                   # Streamlit web application & prediction UI
+├── train_model.py           # ML training script for classifier & regressor
+├── requirements.txt         # Pinned Python package dependencies
+├── matches.csv              # Historical IPL match data
+├── deliveries.csv           # Historical ball-by-ball delivery data
+├── .streamlit/
+│   └── config.toml          # Streamlit UI theme configuration
+├── .gitignore               # Git ignore patterns for venv & cache
+├── LICENSE                  # MIT License
+└── README.md                # Project documentation
+```
+
+---
+
+## 👨‍💻 Author
+
+Created with ❤️ for IPL analytics by **Shivraj** ([@shivrajpawar514-commits](https://github.com/shivrajpawar514-commits)).
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
