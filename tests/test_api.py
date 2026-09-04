@@ -14,7 +14,7 @@ def test_root_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "IPL Match Predictor API"
-    assert data["version"] == "2.0.0"
+    assert data["version"] == "2.1.0"
 
 
 def test_health_endpoint():
@@ -81,3 +81,19 @@ def test_simulate_scenario_endpoint():
     data = response.json()
     assert "trajectories" in data
     assert len(data["trajectories"]) == 2
+
+
+def test_dls_par_score_endpoint():
+    payload = {
+        "target_runs": 180,
+        "current_over": 12.0,
+        "wickets_lost": 2,
+        "current_runs": 110
+    }
+    response = client.post("/analytics/dls-par-score", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "dls_par_score" in data
+    assert "is_ahead_of_par" in data
+    assert isinstance(data["is_ahead_of_par"], bool)
+

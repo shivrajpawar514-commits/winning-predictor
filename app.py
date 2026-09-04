@@ -10,6 +10,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from src.predictor import MatchPredictor
 from src.explainability import ExplainabilityEngine
+from src.utils import estimate_dls_par_score, get_match_momentum_indicator
 from src.config import MATCHES_CSV, DELIVERIES_CSV
 
 # Page Setup
@@ -242,6 +243,17 @@ with tab1:
             )
             st.plotly_chart(fig, use_container_width=True)
 
+            momentum = get_match_momentum_indicator(crr, rrr)
+            dls_par = estimate_dls_par_score(target_runs, overs_decimal, wickets_lost)
+            dls_diff = runs_scored - dls_par
+
+            col_m1, col_m2 = st.columns(2)
+            with col_m1:
+                st.metric("Match Momentum", momentum["badge"], help="Momentum rating based on CRR vs RRR spread")
+            with col_m2:
+                st.metric("DLS Rain Par Score", f"{dls_par} Runs", delta=f"{dls_diff:+d} vs Par ({'Ahead' if dls_diff >= 0 else 'Behind'})")
+
+            st.write("")
             if b_prob >= 70:
                 st.success(f"🎉 **{batting_team}** are commanding favorites ({b_prob:.1f}% chance) to chase down {target_runs}.")
             elif b_prob >= 45:

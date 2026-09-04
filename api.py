@@ -9,11 +9,17 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 from src.predictor import MatchPredictor
 from src.explainability import ExplainabilityEngine
+from src.utils import (
+    estimate_dls_par_score,
+    get_match_momentum_indicator,
+    calculate_strike_rate,
+    calculate_economy_rate
+)
 
 app = FastAPI(
     title="🏏 IPL Match Predictor API",
-    description="Enterprise Machine Learning REST API for real-time IPL winning probabilities, projected scores, and match scenario simulations.",
-    version="2.0.0",
+    description="Enterprise Machine Learning REST API for real-time IPL winning probabilities, projected scores, DLS calculations, and match scenario simulations.",
+    version="2.1.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -67,6 +73,7 @@ class WinProbabilityResponse(BaseModel):
     runs_needed: int
     balls_remaining: int
     wickets_in_hand: int
+    momentum_status: Optional[str] = None
 
 
 class FirstInningsScoreRequest(BaseModel):
@@ -99,13 +106,30 @@ class ScenarioSimulationRequest(BaseModel):
     simulate_wickets_lost: int = Field(default=0, ge=0, le=5)
 
 
+class DlsCalculationRequest(BaseModel):
+    target_runs: int = Field(..., ge=1, le=500, description="Target score set by 1st innings", json_schema_extra={"example": 185})
+    current_over: float = Field(..., ge=0.0, le=20.0, description="Overs completed in chase", json_schema_extra={"example": 11.4})
+    wickets_lost: int = Field(..., ge=0, le=10, description="Wickets lost by chasing team", json_schema_extra={"example": 2})
+    current_runs: int = Field(..., ge=0, le=500, description="Current runs scored by chasing team", json_schema_extra={"example": 105})
+
+
+class DlsCalculationResponse(BaseModel):
+    target_runs: int
+    current_over: float
+    wickets_lost: int
+    current_runs: int
+    dls_par_score: int
+    par_differential: int
+    is_ahead_of_par: bool
+
+
 # --- Endpoints ---
 
 @app.get("/", tags=["General"])
 def root():
     return {
         "name": "IPL Match Predictor API",
-        "version": "2.0.0",
+        "version": "2.1.0",
         "docs": "/docs",
         "health": "/health"
     }
@@ -140,6 +164,8 @@ def predict_win_probability(req: WinProbabilityRequest):
             overs_completed=req.overs_completed,
             target_runs=req.target_runs
         )
+        momentum = get_match_momentum_indicator(res["current_run_rate"], res["required_run_rate"])
+        res["momentum_status"] = momentum["status"]
         return res
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -193,3 +219,23 @@ def feature_importance():
     """Returns normalized tree feature importance values."""
     engine = get_explainability()
     return engine.get_feature_importances()
+
+
+@app.post("/analytics/dls-par-score", response_model=DlsCalculationResponse, tags=["Cricket Analytics"])
+def calculate_dls_par_score(req: DlsCalculationRequest):
+    """Calculates Duckworth-Lewis-Stern (DLS) par score for rain interruptions."""
+    par_score = estimate_dls_par_score(
+        target_runs=req.target_runs,
+        current_over=req.current_over,
+        wickets_lost=req.wickets_lost
+    )
+    diff = req.current_runs - par_score
+    return {
+        "target_runs": req.target_runs,
+        "current_over": req.current_over,
+        "wickets_lost": req.wickets_lost,
+        "current_runs": req.current_runs,
+        "dls_par_score": par_score,
+        "par_differential": diff,
+        "is_ahead_of_par": diff >= 0
+    }
