@@ -10,7 +10,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 from src.predictor import MatchPredictor
 from src.explainability import ExplainabilityEngine
-from src.utils import estimate_dls_par_score, get_match_momentum_indicator
+from src.utils import (
+    validate_and_convert_overs,
+    total_balls_to_decimal_overs,
+    estimate_dls_par_score,
+    get_match_momentum_indicator
+)
 from src.config import MATCHES_CSV, DELIVERIES_CSV
 
 # Page Setup
@@ -85,9 +90,12 @@ st.markdown("""
 
 @st.cache_resource(show_spinner="Initializing Machine Learning Engine...")
 def load_engine():
-    predictor = MatchPredictor()
-    explainability = ExplainabilityEngine(predictor)
-    return predictor, explainability
+    try:
+        predictor = MatchPredictor()
+        explainability = ExplainabilityEngine(predictor)
+        return predictor, explainability, None
+    except Exception as e:
+        return None, None, str(e)
 
 
 @st.cache_data(show_spinner="Loading Historical Match Analytics...")
@@ -96,12 +104,18 @@ def load_historical_data():
     return matches
 
 
-predictor, explainability = load_engine()
-teams = predictor.teams
+predictor, explainability, engine_error = load_engine()
 
 # Header
 st.markdown('<h1 class="hero-title">🏏 IPL Match Intelligence & Win Predictor</h1>', unsafe_allow_html=True)
 st.markdown('<p class="hero-subtitle">Production-grade Machine Learning & Scenario Analytics Engine for Indian Premier League</p>', unsafe_allow_html=True)
+
+if engine_error:
+    st.error(f"⚠️ Machine Learning Models could not be loaded: {engine_error}")
+    st.info("💡 To train and serialize models, run: `python -m src.train` in your terminal.")
+    st.stop()
+
+teams = predictor.teams
 
 # Sidebar
 with st.sidebar:
@@ -159,13 +173,16 @@ with tab1:
     if innings == 2:
         target_runs = st.number_input("Target Runs to Chase", min_value=1, max_value=500, value=178, step=1, key="t1_t")
 
-    # Metrics Summary
-    overs_int = int(overs_completed)
-    balls = int(round((overs_completed - overs_int) * 10))
-    balls = min(balls, 5)
-    overs_decimal = overs_int + (balls / 6.0)
+    # Validate cricket overs and compute legal balls bowled
+    try:
+        total_balls = validate_and_convert_overs(overs_completed)
+    except ValueError as e:
+        st.error(f"⚠️ {e}")
+        st.stop()
+
+    overs_decimal = total_balls_to_decimal_overs(total_balls)
     crr = (runs_scored / overs_decimal) if overs_decimal > 0 else 0.0
-    balls_remaining = max(0, 120 - int(overs_int * 6 + balls))
+    balls_remaining = max(0, 120 - total_balls)
     wickets_in_hand = max(0, 10 - wickets_lost)
 
     st.markdown("#### 📈 Real-Time Rates & Metrics")
@@ -244,7 +261,7 @@ with tab1:
             st.plotly_chart(fig, use_container_width=True)
 
             momentum = get_match_momentum_indicator(crr, rrr)
-            dls_par = estimate_dls_par_score(target_runs, overs_decimal, wickets_lost)
+            dls_par = estimate_dls_par_score(target_runs, overs_completed, wickets_lost)
             dls_diff = runs_scored - dls_par
 
             col_m1, col_m2 = st.columns(2)

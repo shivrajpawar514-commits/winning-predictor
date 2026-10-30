@@ -54,3 +54,27 @@ def test_overs_decimal_conversion(mock_encoders):
 
     assert pytest.approx(res["overs_decimal"], 0.01) == 7.5
     assert pytest.approx(res["crr"], 0.01) == 10.0
+
+
+def test_overs_cricket_notation_14_2(mock_encoders):
+    le_b, le_bowl = mock_encoders
+    # 14.2 overs = 14 overs and 2 balls = 14*6 + 2 = 86 balls bowled
+    # decimal overs = 86 / 6.0 = 14.3333... overs
+    # balls remaining = 120 - 86 = 34 balls
+    res = encode_single_match_state(
+        batting_team="Chennai Super Kings",
+        bowling_team="Mumbai Indians",
+        runs_scored=129,
+        wickets_lost=3,
+        overs_completed=14.2,
+        innings=2,
+        target_runs=185,
+        le_batting=le_b,
+        le_bowling=le_bowl
+    )
+
+    assert res["total_balls"] == 86
+    assert res["balls_remaining"] == 34
+    assert pytest.approx(res["overs_decimal"], 0.001) == 86 / 6.0
+    assert pytest.approx(res["crr"], 0.01) == 129 / (86 / 6.0)
+

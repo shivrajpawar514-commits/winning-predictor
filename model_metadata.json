@@ -1,0 +1,234 @@
+{
+  "version": "2.2.0",
+  "trained_at": "2026-10-30T19:09:52.407809Z",
+  "training_time_seconds": 13.52,
+  "evaluation_setup": {
+    "split_strategy": "match",
+    "random_seed": 42,
+    "train_matches": 873,
+    "test_matches": 219,
+    "leak_free_guarantee": true
+  },
+  "dataset": {
+    "source": "Kaggle IPL Complete Dataset (deliveries.csv & matches.csv)",
+    "total_deliveries": 260920,
+    "total_matches": 1095,
+    "teams": [
+      "Chennai Super Kings",
+      "Deccan Chargers",
+      "Delhi Capitals",
+      "Gujarat Lions",
+      "Gujarat Titans",
+      "Kochi Tuskers Kerala",
+      "Kolkata Knight Riders",
+      "Lucknow Super Giants",
+      "Mumbai Indians",
+      "Pune Warriors",
+      "Punjab Kings",
+      "Rajasthan Royals",
+      "Rising Pune Supergiants",
+      "Royal Challengers Bengaluru",
+      "Sunrisers Hyderabad"
+    ]
+  },
+  "classification_benchmarks": {
+    "selected_model": "GradientBoostingClassifier",
+    "random_forest": {
+      "accuracy": 0.7402,
+      "roc_auc": 0.8347,
+      "brier_score": 0.166,
+      "log_loss": 0.5,
+      "expected_calibration_error": 0.0634,
+      "max_calibration_error": 0.194,
+      "reliability_table": [
+        {
+          "bin": 1,
+          "range": "[0.0, 0.1)",
+          "count": 2942,
+          "accuracy": 0.102,
+          "confidence": 0.0413,
+          "abs_error": 0.0607
+        },
+        {
+          "bin": 2,
+          "range": "[0.1, 0.2)",
+          "count": 1907,
+          "accuracy": 0.2543,
+          "confidence": 0.1469,
+          "abs_error": 0.1074
+        },
+        {
+          "bin": 3,
+          "range": "[0.2, 0.3)",
+          "count": 1932,
+          "accuracy": 0.2774,
+          "confidence": 0.251,
+          "abs_error": 0.0264
+        },
+        {
+          "bin": 4,
+          "range": "[0.3, 0.4)",
+          "count": 2060,
+          "accuracy": 0.4646,
+          "confidence": 0.3512,
+          "abs_error": 0.1133
+        },
+        {
+          "bin": 5,
+          "range": "[0.4, 0.5)",
+          "count": 2460,
+          "accuracy": 0.6439,
+          "confidence": 0.4499,
+          "abs_error": 0.194
+        },
+        {
+          "bin": 6,
+          "range": "[0.5, 0.6)",
+          "count": 2342,
+          "accuracy": 0.6046,
+          "confidence": 0.5506,
+          "abs_error": 0.054
+        },
+        {
+          "bin": 7,
+          "range": "[0.6, 0.7)",
+          "count": 2399,
+          "accuracy": 0.682,
+          "confidence": 0.6493,
+          "abs_error": 0.0327
+        },
+        {
+          "bin": 8,
+          "range": "[0.7, 0.8)",
+          "count": 2284,
+          "accuracy": 0.8288,
+          "confidence": 0.7539,
+          "abs_error": 0.0749
+        },
+        {
+          "bin": 9,
+          "range": "[0.8, 0.9)",
+          "count": 2999,
+          "accuracy": 0.8459,
+          "confidence": 0.8534,
+          "abs_error": 0.0074
+        },
+        {
+          "bin": 10,
+          "range": "[0.9, 1.0)",
+          "count": 3772,
+          "accuracy": 0.969,
+          "confidence": 0.9564,
+          "abs_error": 0.0126
+        }
+      ]
+    },
+    "gradientboosting": {
+      "accuracy": 0.769,
+      "roc_auc": 0.857,
+      "brier_score": 0.1532,
+      "log_loss": 0.4656,
+      "expected_calibration_error": 0.0541,
+      "max_calibration_error": 0.1228,
+      "reliability_table": [
+        {
+          "bin": 1,
+          "range": "[0.0, 0.1)",
+          "count": 3381,
+          "accuracy": 0.0663,
+          "confidence": 0.0445,
+          "abs_error": 0.0217
+        },
+        {
+          "bin": 2,
+          "range": "[0.1, 0.2)",
+          "count": 1810,
+          "accuracy": 0.2635,
+          "confidence": 0.1478,
+          "abs_error": 0.1157
+        },
+        {
+          "bin": 3,
+          "range": "[0.2, 0.3)",
+          "count": 1728,
+          "accuracy": 0.3762,
+          "confidence": 0.2534,
+          "abs_error": 0.1228
+        },
+        {
+          "bin": 4,
+          "range": "[0.3, 0.4)",
+          "count": 1810,
+          "accuracy": 0.4602,
+          "confidence": 0.3506,
+          "abs_error": 0.1096
+        },
+        {
+          "bin": 5,
+          "range": "[0.4, 0.5)",
+          "count": 2214,
+          "accuracy": 0.5136,
+          "confidence": 0.4503,
+          "abs_error": 0.0632
+        },
+        {
+          "bin": 6,
+          "range": "[0.5, 0.6)",
+          "count": 2157,
+          "accuracy": 0.5517,
+          "confidence": 0.5492,
+          "abs_error": 0.0025
+        },
+        {
+          "bin": 7,
+          "range": "[0.6, 0.7)",
+          "count": 2300,
+          "accuracy": 0.7526,
+          "confidence": 0.6489,
+          "abs_error": 0.1037
+        },
+        {
+          "bin": 8,
+          "range": "[0.7, 0.8)",
+          "count": 2396,
+          "accuracy": 0.8251,
+          "confidence": 0.7492,
+          "abs_error": 0.0759
+        },
+        {
+          "bin": 9,
+          "range": "[0.8, 0.9)",
+          "count": 2586,
+          "accuracy": 0.8716,
+          "confidence": 0.852,
+          "abs_error": 0.0196
+        },
+        {
+          "bin": 10,
+          "range": "[0.9, 1.0)",
+          "count": 4715,
+          "accuracy": 0.9599,
+          "confidence": 0.9496,
+          "abs_error": 0.0103
+        }
+      ]
+    }
+  },
+  "regression_benchmarks": {
+    "selected_model": "GradientBoostingRegressor",
+    "random_forest": {
+      "r2_score": 0.4231,
+      "rmse": 22.66,
+      "mae": 16.65,
+      "coverage_within_10_runs": 0.4325,
+      "coverage_within_15_runs": 0.5763
+    },
+    "gradientboosting": {
+      "r2_score": 0.5032,
+      "rmse": 21.02,
+      "mae": 15.49,
+      "coverage_within_10_runs": 0.4494,
+      "coverage_within_15_runs": 0.6051
+    }
+  }
+}

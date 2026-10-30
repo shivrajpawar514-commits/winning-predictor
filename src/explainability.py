@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from src.predictor import MatchPredictor
 from src.config import CLASSIFICATION_FEATURES, REGRESSION_FEATURES
+from src.utils import validate_and_convert_overs
 
 
 class ExplainabilityEngine:
@@ -58,7 +59,8 @@ class ExplainabilityEngine:
         under different hypothetical scoring rates and wicket scenarios.
         """
         trajectories = []
-        overs_to_simulate = np.arange(int(current_over) + 1, 21)
+        current_balls = validate_and_convert_overs(current_over)
+        overs_to_simulate = np.arange(int(np.floor(current_over)) + 1, 21)
 
         for rate in run_rates:
             points = []
@@ -99,7 +101,12 @@ class ExplainabilityEngine:
                     })
                     break
 
-                sim_runs = int(min(target_runs, current_runs + (o - current_over) * rate))
+                # Convert overs difference to balls difference then decimal overs
+                sim_balls = int(o) * 6
+                balls_diff = max(0, sim_balls - current_balls)
+                overs_diff = balls_diff / 6.0
+                sim_runs = int(min(target_runs, round(current_runs + overs_diff * rate)))
+
                 res = self.predictor.predict_win_probability(
                     batting_team=batting_team,
                     bowling_team=bowling_team,

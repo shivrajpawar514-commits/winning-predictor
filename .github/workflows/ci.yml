@@ -25,6 +25,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
+    - name: Train Models & Generate Benchmarks
+      run: |
+        python -m src.train --split-strategy match
+
     - name: Run Test Suite with Pytest
       run: |
         pytest -v

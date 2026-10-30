@@ -81,14 +81,77 @@ An **enterprise-grade, end-to-end Machine Learning & AI Engineering platform** f
 
 ---
 
-## 📊 Model Performance Benchmarks
+## 📊 Model Performance Benchmarks & Calibration
 
-| Task | Benchmark Model | Accuracy / R² | ROC-AUC / RMSE |
-| :--- | :--- | :--- | :--- |
-| **Win Probability (2nd Innings)** | **Random Forest Classifier** | **82.4%** | **0.884 ROC-AUC** |
-| **Win Probability (2nd Innings)** | XGBoost Classifier | 81.9% | 0.879 ROC-AUC |
-| **Score Projection (1st Innings)**| **Random Forest Regressor** | **0.781 R²** | **15.2 RMSE Runs** |
-| **Score Projection (1st Innings)**| XGBoost Regressor | 0.765 R² | 16.1 RMSE Runs |
+### 1. Leak-Free Evaluation (Match-Level Split)
+To eliminate data leakage caused by random row splitting (where deliveries from the same match appear in both training and test sets), the pipeline employs **GroupShuffleSplit on match ID** (873 train matches vs 219 test matches) ensuring zero match contamination.
+
+| Task | Architecture | Accuracy / R² | ROC-AUC / RMSE | Brier Score | ECE (Calib Err) | Log Loss |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Win Probability (2nd Innings)** | **Gradient Boosting Classifier** | **76.9%** | **0.8570** | **0.1532** | **0.0541** | **0.4656** |
+| **Win Probability (2nd Innings)** | Random Forest Classifier | 74.0% | 0.8347 | 0.1660 | 0.0634 | 0.5000 |
+| **Score Projection (1st Innings)**| **Gradient Boosting Regressor** | **0.5032 R²** | **21.02 RMSE** | — | — | MAE: 15.49 |
+| **Score Projection (1st Innings)**| Random Forest Regressor | 0.4231 R² | 22.66 RMSE | — | — | MAE: 16.65 |
+
+> **Calibration & Reliability**: Probability estimates are evaluated using **Brier Score Loss** (0.1532) and **Expected Calibration Error (ECE: 5.41%)** across 10 probability deciles. Calibration curves and reliability tables are exported to `model_metadata.json`.
+
+### 2. Baseline Row-Level Evaluation (Optimistic Leakage Reference)
+When trained with unconstrained row-level random sampling (test_size=0.2, random_state=42):
+- **Win Probability (2nd Innings)**: Random Forest 82.4% Accuracy, 0.884 ROC-AUC | XGBoost 81.9% Accuracy, 0.879 ROC-AUC
+- **Score Projection (1st Innings)**: Random Forest 0.781 R², 15.2 RMSE | XGBoost 0.765 R², 16.1 RMSE
+
+---
+
+## 🔬 Reproducing Reported Benchmarks
+
+### Dataset Source
+- **Primary Source**: Kaggle IPL Complete Dataset ([deliveries.csv](deliveries.csv) and [matches.csv](matches.csv)).
+- **Volume**: 260,920 delivery records across 1,095 IPL matches spanning seasons 2008 through 2024.
+
+### Preprocessing Steps
+1. **Match ID Harmonization**: Standardize delivery identifier (`match_id` -> `id`).
+2. **Team Alias Harmonization**: Canonicalize franchise rebrands (e.g. `Delhi Daredevils` -> `Delhi Capitals`, `Kings XI Punjab` -> `Punjab Kings`, `Royal Challengers Bangalore` -> `Royal Challengers Bengaluru`).
+3. **Continuous Decimal Overs**: Convert 0-indexed over and delivery number to continuous decimal overs (`overs_decimal = over + ball / 6.0`).
+4. **Cumulative Match Aggregation**: Compute cumulative runs and wickets per match and innings.
+5. **Target Runs Extraction**: Extract 1st innings total runs as the target for 2nd innings chase records.
+6. **Domain Metrics**: Derive CRR, balls bowled, balls remaining, wickets in hand, and runs needed.
+7. **Label Encoding**: Fit consistent LabelEncoders on all participating franchises.
+
+### Random Seeds & Evaluation Script
+- **Random Seed**: `random_state = 42` across all splits, random forests, and boosting ensembles.
+- **Evaluation Scripts**:
+  ```bash
+  # Leak-free match-level split (recommended)
+  python -m src.train --split-strategy match --seed 42
+
+  # Season-based temporal split (train <= 2022, test 2023-2024)
+  python -m src.train --split-strategy season --seed 42
+
+  # Legacy standalone script
+  python train_model.py
+  ```
+All generated metrics, reliability tables, and calibration curve coordinates are recorded automatically in `model_metadata.json`.
+
+---
+
+## 🛡️ Security, Validation & Failure Handling
+
+### 1. Robust CORS Configuration
+`allow_origins=["*"]` combined with `allow_credentials=True` is an invalid configuration under W3C specifications that modern browsers reject. The API specifies trusted origins explicitly and supports dynamic configuration:
+- Default trusted origins: `http://localhost:8501`, `http://127.0.0.1:8501`, `http://localhost:3000`, `http://localhost:8000`.
+- Environment variable override: configure comma-separated origins via `ALLOWED_ORIGINS="https://yourdomain.com,https://app.yourdomain.com"`.
+
+### 2. Cricket Overs Validation
+In cricket, overs notation represents completed overs and remaining balls (`O.B`):
+- `14.2` means **14 overs and 2 balls** (total balls bowled = $14 \times 6 + 2 = 86$ balls; balls remaining = $120 - 86 = 34$; decimal overs = $86 / 6 = 14.333\dots$).
+- Decimal inputs like `14.8` or `14.25` are strictly rejected with HTTP 422 / ValueError since an over only contains legal balls $0 \dots 5$.
+- All rate calculations (CRR, RRR, balls remaining, DLS par score) convert overs to total legal balls first.
+
+### 3. Comprehensive Failure Handling
+- **Missing Model Files**: `/health` returns HTTP 503 (`status: "unhealthy", "models_loaded": false`) with actionable diagnostic instructions instead of crashing.
+- **Malformed Requests**: Pydantic V2 validators enforce bounds on runs ($0-500$), wickets ($0-10$), overs ($0.0-20.0$), non-identical teams, and positive targets.
+- **Unavailable Datasets**: `load_raw_data` verifies file existence and raises informative `FileNotFoundError` if data files are missing.
+- **Model Initialization Errors**: Catches corrupted or incompatible binary artifacts and raises descriptive `RuntimeError`.
 
 ---
 

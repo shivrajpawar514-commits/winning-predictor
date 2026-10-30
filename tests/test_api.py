@@ -97,3 +97,22 @@ def test_dls_par_score_endpoint():
     assert "is_ahead_of_par" in data
     assert isinstance(data["is_ahead_of_par"], bool)
 
+
+def test_predict_win_probability_cricket_overs_14_2():
+    payload = {
+        "batting_team": "Chennai Super Kings",
+        "bowling_team": "Mumbai Indians",
+        "runs_scored": 130,
+        "wickets_lost": 3,
+        "overs_completed": 14.2,
+        "target_runs": 185
+    }
+    response = client.post("/predict/win-probability", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["balls_remaining"] == 34
+    assert data["runs_needed"] == 55
+    assert pytest.approx(data["current_run_rate"], 0.05) == 9.07
+    assert pytest.approx(data["required_run_rate"], 0.05) == 9.71
+
+

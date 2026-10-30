@@ -1,15 +1,18 @@
 """
 Enterprise FastAPI REST Service for IPL Match Predictions & Analytics.
-Provides OpenAPI / Swagger documentation, validation, and health checks.
+Provides OpenAPI / Swagger documentation, validation, CORS security, and health checks.
 """
 
+import os
+from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, field_validator, model_validator
 from src.predictor import MatchPredictor
 from src.explainability import ExplainabilityEngine
 from src.utils import (
+    validate_and_convert_overs,
     estimate_dls_par_score,
     get_match_momentum_indicator,
     calculate_strike_rate,
@@ -24,12 +27,29 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS Middleware
+# --- CORS Configuration ---
+# Specifying trusted origins explicitly: allow_origins=["*"] with allow_credentials=True
+# is forbidden by the CORS specification and rejected by modern browsers.
+DEFAULT_TRUSTED_ORIGINS = [
+    "http://localhost:8501",
+    "http://127.0.0.1:8501",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+
+env_origins = os.getenv("ALLOWED_ORIGINS")
+if env_origins:
+    trusted_origins = [o.strip() for o in env_origins.split(",") if o.strip()]
+else:
+    trusted_origins = DEFAULT_TRUSTED_ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=trusted_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -39,9 +59,21 @@ _explainability: Optional[ExplainabilityEngine] = None
 
 
 def get_predictor() -> MatchPredictor:
+    """Retrieves or initializes MatchPredictor singleton. Raises HTTPException on failure."""
     global _predictor
     if _predictor is None:
-        _predictor = MatchPredictor()
+        try:
+            _predictor = MatchPredictor()
+        except FileNotFoundError as e:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Model files not available: {e}"
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Predictor service failed to initialize: {e}"
+            )
     return _predictor
 
 
@@ -52,15 +84,34 @@ def get_explainability() -> ExplainabilityEngine:
     return _explainability
 
 
+def reset_predictor():
+    """Helper for testing to reset cached predictor state."""
+    global _predictor, _explainability
+    _predictor = None
+    _explainability = None
+
+
 # --- Request & Response Schemas ---
 
 class WinProbabilityRequest(BaseModel):
-    batting_team: str = Field(..., description="Name of the team currently batting/chasing", json_schema_extra={"example": "Chennai Super Kings"})
-    bowling_team: str = Field(..., description="Name of the defending bowling team", json_schema_extra={"example": "Mumbai Indians"})
+    batting_team: str = Field(..., min_length=2, description="Name of the team currently batting/chasing", json_schema_extra={"example": "Chennai Super Kings"})
+    bowling_team: str = Field(..., min_length=2, description="Name of the defending bowling team", json_schema_extra={"example": "Mumbai Indians"})
     runs_scored: int = Field(..., ge=0, le=500, description="Total runs scored so far in 2nd innings", json_schema_extra={"example": 120})
     wickets_lost: int = Field(..., ge=0, le=10, description="Wickets lost by batting team", json_schema_extra={"example": 3})
-    overs_completed: float = Field(..., ge=0.0, le=20.0, description="Overs completed (e.g. 14.2 for 14 overs 2 balls)", json_schema_extra={"example": 14.2})
+    overs_completed: float = Field(..., ge=0.0, le=20.0, description="Overs completed in cricket notation O.B (e.g. 14.2 for 14 overs and 2 balls)", json_schema_extra={"example": 14.2})
     target_runs: int = Field(..., ge=1, le=500, description="Target score required to win", json_schema_extra={"example": 185})
+
+    @field_validator("overs_completed")
+    @classmethod
+    def validate_cricket_overs(cls, v: float) -> float:
+        validate_and_convert_overs(v)
+        return v
+
+    @model_validator(mode="after")
+    def validate_match_teams(self):
+        if self.batting_team.strip().lower() == self.bowling_team.strip().lower():
+            raise ValueError("Batting team and Bowling team cannot be identical.")
+        return self
 
 
 class WinProbabilityResponse(BaseModel):
@@ -77,11 +128,23 @@ class WinProbabilityResponse(BaseModel):
 
 
 class FirstInningsScoreRequest(BaseModel):
-    batting_team: str = Field(..., description="Team batting first", json_schema_extra={"example": "Royal Challengers Bengaluru"})
-    bowling_team: str = Field(..., description="Team bowling first", json_schema_extra={"example": "Kolkata Knight Riders"})
+    batting_team: str = Field(..., min_length=2, description="Team batting first", json_schema_extra={"example": "Royal Challengers Bengaluru"})
+    bowling_team: str = Field(..., min_length=2, description="Team bowling first", json_schema_extra={"example": "Kolkata Knight Riders"})
     runs_scored: int = Field(..., ge=0, le=500, description="Runs scored so far", json_schema_extra={"example": 85})
     wickets_lost: int = Field(..., ge=0, le=10, description="Wickets lost so far", json_schema_extra={"example": 2})
-    overs_completed: float = Field(..., ge=0.1, le=20.0, description="Overs completed", json_schema_extra={"example": 10.0})
+    overs_completed: float = Field(..., ge=0.0, le=20.0, description="Overs completed in cricket notation (e.g. 10.0)", json_schema_extra={"example": 10.0})
+
+    @field_validator("overs_completed")
+    @classmethod
+    def validate_cricket_overs(cls, v: float) -> float:
+        validate_and_convert_overs(v)
+        return v
+
+    @model_validator(mode="after")
+    def validate_match_teams(self):
+        if self.batting_team.strip().lower() == self.bowling_team.strip().lower():
+            raise ValueError("Batting team and Bowling team cannot be identical.")
+        return self
 
 
 class FirstInningsScoreResponse(BaseModel):
@@ -96,21 +159,39 @@ class FirstInningsScoreResponse(BaseModel):
 
 
 class ScenarioSimulationRequest(BaseModel):
-    batting_team: str = Field(..., json_schema_extra={"example": "Gujarat Titans"})
-    bowling_team: str = Field(..., json_schema_extra={"example": "Rajasthan Royals"})
-    current_runs: int = Field(..., ge=0, json_schema_extra={"example": 100})
+    batting_team: str = Field(..., min_length=2, json_schema_extra={"example": "Gujarat Titans"})
+    bowling_team: str = Field(..., min_length=2, json_schema_extra={"example": "Rajasthan Royals"})
+    current_runs: int = Field(..., ge=0, le=500, json_schema_extra={"example": 100})
     current_wickets: int = Field(..., ge=0, le=10, json_schema_extra={"example": 3})
-    current_over: float = Field(..., ge=1.0, le=19.0, json_schema_extra={"example": 12.0})
-    target_runs: int = Field(..., ge=1, json_schema_extra={"example": 180})
+    current_over: float = Field(..., ge=0.0, le=19.5, json_schema_extra={"example": 12.0})
+    target_runs: int = Field(..., ge=1, le=500, json_schema_extra={"example": 180})
     run_rates: List[float] = Field(default=[6.0, 8.0, 10.0, 12.0])
     simulate_wickets_lost: int = Field(default=0, ge=0, le=5)
+
+    @field_validator("current_over")
+    @classmethod
+    def validate_cricket_overs(cls, v: float) -> float:
+        validate_and_convert_overs(v)
+        return v
+
+    @model_validator(mode="after")
+    def validate_simulation_teams(self):
+        if self.batting_team.strip().lower() == self.bowling_team.strip().lower():
+            raise ValueError("Batting team and Bowling team cannot be identical.")
+        return self
 
 
 class DlsCalculationRequest(BaseModel):
     target_runs: int = Field(..., ge=1, le=500, description="Target score set by 1st innings", json_schema_extra={"example": 185})
-    current_over: float = Field(..., ge=0.0, le=20.0, description="Overs completed in chase", json_schema_extra={"example": 11.4})
+    current_over: float = Field(..., ge=0.0, le=20.0, description="Overs completed in chase in cricket notation (e.g. 11.4)", json_schema_extra={"example": 11.4})
     wickets_lost: int = Field(..., ge=0, le=10, description="Wickets lost by chasing team", json_schema_extra={"example": 2})
     current_runs: int = Field(..., ge=0, le=500, description="Current runs scored by chasing team", json_schema_extra={"example": 105})
+
+    @field_validator("current_over")
+    @classmethod
+    def validate_cricket_overs(cls, v: float) -> float:
+        validate_and_convert_overs(v)
+        return v
 
 
 class DlsCalculationResponse(BaseModel):
@@ -137,12 +218,32 @@ def root():
 
 @app.get("/health", tags=["General"])
 def health_check():
-    predictor = get_predictor()
-    return {
-        "status": "healthy",
-        "models_loaded": True,
-        "available_teams_count": len(predictor.teams)
-    }
+    """Health check endpoint. Returns 503 if models cannot be initialized."""
+    try:
+        predictor = get_predictor()
+        return {
+            "status": "healthy",
+            "models_loaded": True,
+            "available_teams_count": len(predictor.teams)
+        }
+    except HTTPException as e:
+        return JSONResponse(
+            status_code=e.status_code,
+            content={
+                "status": "unhealthy",
+                "models_loaded": False,
+                "error": e.detail
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "status": "unhealthy",
+                "models_loaded": False,
+                "error": str(e)
+            }
+        )
 
 
 @app.get("/teams", response_model=List[str], tags=["Metadata"])
@@ -167,6 +268,8 @@ def predict_win_probability(req: WinProbabilityRequest):
         momentum = get_match_momentum_indicator(res["current_run_rate"], res["required_run_rate"])
         res["momentum_status"] = momentum["status"]
         return res
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
@@ -186,6 +289,8 @@ def predict_first_innings_score(req: FirstInningsScoreRequest):
             overs_completed=req.overs_completed
         )
         return res
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
@@ -208,6 +313,8 @@ def simulate_scenario(req: ScenarioSimulationRequest):
             simulate_wickets_lost=req.simulate_wickets_lost
         )
         return {"trajectories": trajectories}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
@@ -224,18 +331,24 @@ def feature_importance():
 @app.post("/analytics/dls-par-score", response_model=DlsCalculationResponse, tags=["Cricket Analytics"])
 def calculate_dls_par_score(req: DlsCalculationRequest):
     """Calculates Duckworth-Lewis-Stern (DLS) par score for rain interruptions."""
-    par_score = estimate_dls_par_score(
-        target_runs=req.target_runs,
-        current_over=req.current_over,
-        wickets_lost=req.wickets_lost
-    )
-    diff = req.current_runs - par_score
-    return {
-        "target_runs": req.target_runs,
-        "current_over": req.current_over,
-        "wickets_lost": req.wickets_lost,
-        "current_runs": req.current_runs,
-        "dls_par_score": par_score,
-        "par_differential": diff,
-        "is_ahead_of_par": diff >= 0
-    }
+    try:
+        par_score = estimate_dls_par_score(
+            target_runs=req.target_runs,
+            current_over=req.current_over,
+            wickets_lost=req.wickets_lost
+        )
+        diff = req.current_runs - par_score
+        return {
+            "target_runs": req.target_runs,
+            "current_over": req.current_over,
+            "wickets_lost": req.wickets_lost,
+            "current_runs": req.current_runs,
+            "dls_par_score": par_score,
+            "par_differential": diff,
+            "is_ahead_of_par": diff >= 0
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
